@@ -9,6 +9,7 @@
 #define	PCB_GCODE_H
 
 #include "parser.h"
+#include "gcode_variants.h"
 
 #define UNIT_INCHES     0
 #define UNIT_MM         1
@@ -42,11 +43,13 @@ struct PCBProbeInfo
         Pos.y = 0;
         Pos.z = 0;
     }
-    
+   
+    GCode_Variant_Name GCode_Type ; 
 };
 
 extern PCBProbeInfo info;
 
+void SetGCodeVariant(GCode_Variant_Name theVariant);
 void LoadAndSplitSegments(const char *infile_path);
 void DoInterpolation();
 void GenerateGCodeWithProbing(const char *outfile_path);

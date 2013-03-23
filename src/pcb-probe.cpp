@@ -9,25 +9,18 @@
 
 using namespace std;
 
-#if defined(MACH3)
-
-// Mach 3 config
-#define FIRST_GCODE_VARIABLE 2100
-#define Z_PROBE_RESULT_VARIABLE "2002"
-#define GCODE_PAUSE_COMMAND "M0"
-#define GCODE_PROBE_COMMAND "G31"
-
-#else
-
-// EMC config
-#define FIRST_GCODE_VARIABLE 2000
-#define Z_PROBE_RESULT_VARIABLE "5063"
-#define GCODE_PAUSE_COMMAND "M60"
-#define GCODE_PROBE_COMMAND "G38.2"
-
+#ifndef DEFAULT_GCODE_TYPE
+#define DEFAULT_GCODE_TYPE emc
 #endif
 
+#define FIRST_GCODE_VARIABLE theGCodeVariant->first_variable
+#define LAST_GCODE_VARIABLE theGCodeVariant->last_variable
+#define Z_PROBE_RESULT_VARIABLE theGCodeVariant->z_probe_result_variable
+#define GCODE_PAUSE_COMMAND theGCodeVariant->pause_command
+#define GCODE_PROBE_COMMAND theGCodeVariant->probe_command
+
 PCBProbeInfo info;
+const GCode_Variant *theGCodeVariant = &GCode_Variants[DEFAULT_GCODE_TYPE] ;
 list<GCodeCommand> cmdList;
 map<string, int> cellVariables; //GCode variables associated with every cell in the Grid
 int nextVariableNumber = FIRST_GCODE_VARIABLE ;
@@ -87,6 +80,13 @@ void moveTo(GCodeCommand &command)
 
     if (command.hasZCoord())
         info.Pos.z = command.getZCoord();
+}
+
+void SetGCodeVariant(GCode_Variant_Name theVariant)
+{
+  theGCodeVariant = &GCode_Variants[theVariant] ;
+  info.GCode_Type = theVariant ;
+  nextVariableNumber = FIRST_GCODE_VARIABLE ;
 }
 
 void LoadAndSplitSegments(const char *infile_path)
@@ -180,7 +180,7 @@ void ensure_cell_variable(int gx, int gy)
 
     if (cellVariables.find(key) == cellVariables.end()) {
         cellVariables[key] = nextVariableNumber++;
-        assert(nextVariableNumber < 5161) ;
+        assert(nextVariableNumber < LAST_GCODE_VARIABLE) ;
     }
 }
 
@@ -351,11 +351,11 @@ void GenerateGCodeWithProbing(const char *outfile_path)
                     "\n"
                     "M05			(stop motor)\n"
                     "(MSG,PROBE: Position to within 5mm of surface & resume)\n"
-                    GCODE_PAUSE_COMMAND "                       (pause, wait for resume)\n"
+                    << GCODE_PAUSE_COMMAND << "                       (pause, wait for resume)\n"
                     "G49			(clear any tool offsets)\n"
                     "G92.1			(zero co-ordinate offsets)\n"
                     "G91			(use relative coordinates)\n"
-                    GCODE_PROBE_COMMAND " Z" << initial_probe << " F[#6]	(probe to find worksurface)\n"
+                    << GCODE_PROBE_COMMAND << " Z" << initial_probe << " F[#6]	(probe to find worksurface)\n"
                     "G90			(back to absolute)\n"
                     "G92 Z0			(zero Z)\n"
                     "G00 Z[#1]		(safe height)\n"
@@ -365,7 +365,7 @@ void GenerateGCodeWithProbing(const char *outfile_path)
                     "(params: x y traverse_height probe_depth traverse_speed probe_speed)\n"
                     "O100 sub\n"
                     "G00 X[#1] Y[#2] Z[#3] F[#5]\n"
-                    GCODE_PROBE_COMMAND " Z[#4] F[#6]\n"
+                    << GCODE_PROBE_COMMAND << " Z[#4] F[#6]\n"
                     "G00 Z[#3]\n"
                     "O100 endsub\n"
                     "\n";
@@ -408,7 +408,7 @@ void GenerateGCodeWithProbing(const char *outfile_path)
                     "\n"
                     "G00 Z[#1]		(safe height)\n"
                     "(MSG,PROBE: Probe complete, remove connections & resume)\n"
-                    GCODE_PAUSE_COMMAND "			(pause, wait for resume)\n"
+                    << GCODE_PAUSE_COMMAND << "			(pause, wait for resume)\n"
                     "(MSG,PROBE: Beginning etch)\n"
                     "\n"
                     "\n";
