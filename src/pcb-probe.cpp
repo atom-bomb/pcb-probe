@@ -1,3 +1,8 @@
+/*
+ * XXX TODO: scrape GCode input for route_depth, clear_height, traverse_height and traverse_speed
+ * XXX TODO: try to guess GCode variant by looking at GCode input
+ * XXX TODO: handle any potential output stream errors and return them to the caller
+ */
 #include <assert.h>
 #include <cmath>
 #include <iostream>
@@ -18,6 +23,9 @@ using namespace std;
 #define Z_PROBE_RESULT_VARIABLE theGCodeVariant->z_probe_result_variable
 #define GCODE_PAUSE_COMMAND theGCodeVariant->pause_command
 #define GCODE_PROBE_COMMAND theGCodeVariant->probe_command
+#define GCODE_STARTSUB_COMMAND theGCodeVariant->start_sub_command
+#define GCODE_ENDSUB_COMMAND theGCodeVariant->end_sub_command
+#define GCODE_CALLSUB_COMMAND theGCodeVariant->call_sub_command
 
 PCBProbeInfo info;
 const GCode_Variant *theGCodeVariant = &GCode_Variants[DEFAULT_GCODE_TYPE] ;
@@ -338,8 +346,10 @@ void GenerateGCodeWithProbing(const char *outfile_path)
             
             out << cmd.ToString() << endl;
             out << "\n"
-                    "(Processed with pcb-probe by Lee Essen, 2011, Ivan de Jesus Deras 2013)"
+                    "(Processed with pcb-probe version " << VERSION << 
+                    " by Lee Essen, 2011, Ivan de Jesus Deras 2013)"
                     "\n"
+                    "(this GCode is intended for " << theGCodeVariant->name << ")\n"
                     "\n"
                     "#1=" << clear_height << "			(clearance height)\n"
                     "#2=" << traverse_height << "       	(traverse height)\n"
@@ -351,7 +361,7 @@ void GenerateGCodeWithProbing(const char *outfile_path)
                     "\n"
                     "M05			(stop motor)\n"
                     "(MSG,PROBE: Position to within 5mm of surface & resume)\n"
-                    << GCODE_PAUSE_COMMAND << "                       (pause, wait for resume)\n"
+                    << GCODE_PAUSE_COMMAND << " (position to within 5m of surface and resume)\n"
                     "G49			(clear any tool offsets)\n"
                     "G92.1			(zero co-ordinate offsets)\n"
                     "G91			(use relative coordinates)\n"
@@ -360,15 +370,7 @@ void GenerateGCodeWithProbing(const char *outfile_path)
                     "G92 Z0			(zero Z)\n"
                     "G00 Z[#1]		(safe height)\n"
                     "(MSG,PROBE: Z-Axis calibrate complete, beginning probe)\n"
-                    "\n"
-                    "(probe routine)\n"
-                    "(params: x y traverse_height probe_depth traverse_speed probe_speed)\n"
-                    "O100 sub\n"
-                    "G00 X[#1] Y[#2] Z[#3] F[#5]\n"
-                    << GCODE_PROBE_COMMAND << " Z[#4] F[#6]\n"
-                    "G00 Z[#3]\n"
-                    "O100 endsub\n"
-                    "\n";
+                    "\n" ;
 
             /*
              * Now we can create the code for the depth sensing bit... but
@@ -395,7 +397,9 @@ void GenerateGCodeWithProbing(const char *outfile_path)
                     int var = cell_variable(gx, gy);
 
                     out << "(PROBE[" << gx << "," << gy << "] " << px << " " << py << " -> " << var << ")" << endl;
-                    out << "O100 call [" << px << "] [" << py << "] [#2] [#4] [#5] [#6]" << endl;
+                    out << "#100 = " << px << endl ;
+                    out << "#101 = " << py << endl ;
+                    out << GCODE_CALLSUB_COMMAND << endl ;
                     out << "#" << var << " = #" << Z_PROBE_RESULT_VARIABLE << endl;
                 }
             }
@@ -408,7 +412,7 @@ void GenerateGCodeWithProbing(const char *outfile_path)
                     "\n"
                     "G00 Z[#1]		(safe height)\n"
                     "(MSG,PROBE: Probe complete, remove connections & resume)\n"
-                    << GCODE_PAUSE_COMMAND << "			(pause, wait for resume)\n"
+                    << GCODE_PAUSE_COMMAND << " (Probe complete, remove connections and resume)\n"
                     "(MSG,PROBE: Beginning etch)\n"
                     "\n"
                     "\n";
@@ -418,4 +422,16 @@ void GenerateGCodeWithProbing(const char *outfile_path)
 
         it++;
     }
+    /* put the probe subroutine at the end of output since it's not obvious how to make mach3 skip
+     * over gcode at the beginning of the program text.
+     */
+    out <<          "\n"
+                    "(probe routine)\n"
+                    "(params: 100 = x 101 = y 2 = traverse_height 4 = probe_depth 5 = traverse_speed 6 = probe_speed)\n"
+                    << GCODE_STARTSUB_COMMAND << "\n"
+                    "G00 X[#100] Y[#101] Z[#2] F[#5]\n"
+                    << GCODE_PROBE_COMMAND << " Z[#4] F[#6]\n"
+                    "G00 Z[#2]\n"
+                    << GCODE_ENDSUB_COMMAND << 
+                    "\n";
 }

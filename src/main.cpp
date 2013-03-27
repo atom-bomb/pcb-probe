@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
         cerr << "Where option may be one of:" << endl ;
         cerr << "  -e  force EMC2 GCode output" << endl ;
         cerr << "  -m  force Mach3 GCode output" << endl ;
-        cerr << "  -v  display progrem version number" << endl ;
+        cerr << "  -v  display program version number" << endl ;
         cerr << "  -h  show this help message" << endl ;
         exit(1);
     }
