@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
     extern char *optarg ;
     extern int optind, optopt, opterr ;
 
-    while ((opt = getopt(argc, argv, "emhv")) != -1) {
+    while ((opt = getopt(argc, argv, "emhvc:t:r:")) != -1) {
       switch (opt) {
         case 'e':
           SetGCodeVariant(emc) ;
@@ -41,6 +41,15 @@ int main(int argc, char** argv) {
           cerr << argv[0] << " Version: " << VERSION << endl ;
           exit(0) ;
           break ;
+        case 'c': // clear height
+          SetClearHeight(atof(optarg)) ;
+          break ;
+        case 't': // traverse height
+          SetTraverseHeight(atof(optarg)) ;
+          break ;
+        case 'r': // route depth
+          SetRouteDepth(atof(optarg)) ;
+          break ;
         case '?':
           bShowHelp = 1 ;
           break ;
@@ -52,6 +61,9 @@ int main(int argc, char** argv) {
         cerr << "Where option may be one of:" << endl ;
         cerr << "  -e  force EMC2 GCode output" << endl ;
         cerr << "  -m  force Mach3 GCode output" << endl ;
+        cerr << "  -c (height)  force clear height" << endl ;
+        cerr << "  -t (height)  force traverse height" << endl ;
+        cerr << "  -r (height)  force route depth" << endl ;
         cerr << "  -v  display program version number" << endl ;
         cerr << "  -h  show this help message" << endl ;
         exit(1);

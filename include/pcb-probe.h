@@ -45,11 +45,37 @@ struct PCBProbeInfo
     }
    
     GCode_Variant_Name GCode_Type ; 
+
+    Real clear_height ;
+    bool clear_height_set ;
+
+    Real traverse_height ;
+    bool traverse_height_set ;
+
+    Real route_depth ;
+    bool route_depth_set ;
+
+    Real probe_depth ;
+    bool probe_depth_set ;
+
+    Real initial_probe ;
+    bool initial_probe_set ;
+
+    Real traverse_speed ;
+    bool traverse_speed_set ;
+
+    Real probe_speed ;
+    bool probe_speed_set ;
 };
 
 extern PCBProbeInfo info;
 
 void SetGCodeVariant(GCode_Variant_Name theVariant);
+
+void SetClearHeight(Real theHeight) ;
+void SetTraverseHeight(Real theHeight) ;
+void SetRouteDepth(Real theDepth) ;
+
 void LoadAndSplitSegments(const char *infile_path);
 void DoInterpolation();
 void GenerateGCodeWithProbing(const char *outfile_path);

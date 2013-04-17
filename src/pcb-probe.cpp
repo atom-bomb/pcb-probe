@@ -27,7 +27,24 @@ using namespace std;
 #define GCODE_ENDSUB_COMMAND theGCodeVariant->end_sub_command
 #define GCODE_CALLSUB_COMMAND theGCodeVariant->call_sub_command
 
+#define CLEAR_HEIGHT_INCHES     0.47244
+#define TRAVERSE_HEIGHT_INCHES  0.01969
+#define ROUTE_DEPTH_INCHES      -0.001969
+#define PROBE_DEPTH_INCHES      -0.03937
+#define INITIAL_PROBE_INCHES    -0.1969
+#define TRAVERSE_SPEED_INCHES    400
+#define PROBE_SPEED_INCHES       60
+
+#define CLEAR_HEIGHT_MM          12.0
+#define TRAVERSE_HEIGHT_MM       0.5
+#define ROUTE_DEPTH_MM           -0.05
+#define PROBE_DEPTH_MM           -1
+#define INITIAL_PROBE_MM         -5
+#define TRAVERSE_SPEED_MM        400
+#define PROBE_SPEED_MM           60
+
 PCBProbeInfo info;
+
 const GCode_Variant *theGCodeVariant = &GCode_Variants[DEFAULT_GCODE_TYPE] ;
 list<GCodeCommand> cmdList;
 map<string, int> cellVariables; //GCode variables associated with every cell in the Grid
@@ -97,6 +114,24 @@ void SetGCodeVariant(GCode_Variant_Name theVariant)
   nextVariableNumber = FIRST_GCODE_VARIABLE ;
 }
 
+void SetClearHeight(Real theHeight)
+{
+  info.clear_height = theHeight ;
+  info.clear_height_set = true ;
+}
+
+void SetTraverseHeight(Real theHeight)
+{
+  info.traverse_height = theHeight ;
+  info.traverse_height_set = true ;
+}
+
+void SetRouteDepth(Real theDepth)
+{
+  info.route_depth = theDepth ;
+  info.route_depth_set = true ;
+}
+
 void LoadAndSplitSegments(const char *infile_path)
 {
     string line;
@@ -128,8 +163,50 @@ void LoadAndSplitSegments(const char *infile_path)
             info.GridSize = info.GridSize / 25.4;
             info.SplitOver = info.SplitOver / 25.4;
             info.UnitType = UNIT_INCHES;
+
+            if (!info.clear_height_set)
+              info.clear_height = CLEAR_HEIGHT_INCHES ;
+
+            if (!info.traverse_height_set)
+              info.traverse_height = TRAVERSE_HEIGHT_INCHES ;
+
+            if (!info.route_depth_set)
+              info.route_depth = ROUTE_DEPTH_INCHES ;
+
+            if (!info.probe_depth_set)
+              info.probe_depth = PROBE_DEPTH_INCHES ;
+
+            if (!info.initial_probe_set)
+              info.initial_probe = INITIAL_PROBE_INCHES ;
+
+            if (!info.traverse_speed_set)
+              info.traverse_speed = TRAVERSE_SPEED_INCHES ;
+
+            if (!info.probe_speed_set)
+              info.probe_speed = PROBE_SPEED_INCHES ;
         } else if (cmd.name == "G21") {
             info.UnitType = UNIT_MM;
+
+            if (!info.clear_height_set)
+              info.clear_height = CLEAR_HEIGHT_MM ;
+
+            if (!info.traverse_height_set)
+              info.traverse_height = TRAVERSE_HEIGHT_MM ;
+
+            if (!info.route_depth_set)
+              info.route_depth = ROUTE_DEPTH_MM ;
+
+            if (!info.probe_depth_set)
+              info.probe_depth = PROBE_DEPTH_MM ;
+
+            if (!info.initial_probe_set)
+              info.initial_probe = INITIAL_PROBE_MM ;
+
+            if (!info.traverse_speed_set)
+              info.traverse_speed = TRAVERSE_SPEED_MM ;
+
+            if (!info.probe_speed_set)
+              info.probe_speed = PROBE_SPEED_MM ;
         }
 
         if (cmd.name == "G00" || cmd.name == "G01") {
@@ -324,25 +401,6 @@ void GenerateGCodeWithProbing(const char *outfile_path)
          * We'll put our stuff right after the G21
          */
         if (cmd.name == "G21" || cmd.name == "G20") {
-            Real clear_height;
-            Real traverse_height;
-            Real route_depth;
-            Real probe_depth;
-            Real initial_probe;
-                
-            if (info.UnitType == UNIT_INCHES) {
-                clear_height = 0.47244;
-                traverse_height = 0.01969;
-                route_depth = -0.001969;
-                probe_depth = -0.03937;
-                initial_probe = -0.1969;
-            } else {
-                clear_height = 12.0;
-                traverse_height = 0.5;
-                route_depth = -0.05;
-                probe_depth = -1;
-                initial_probe = -5;
-            }
             
             out << cmd.ToString() << endl;
             out << "\n"
@@ -351,21 +409,21 @@ void GenerateGCodeWithProbing(const char *outfile_path)
                     "\n"
                     "(this GCode is intended for " << theGCodeVariant->name << ")\n"
                     "\n"
-                    "#1=" << clear_height << "			(clearance height)\n"
-                    "#2=" << traverse_height << "       	(traverse height)\n"
-                    "#3=" << route_depth << "   		(route depth)\n"
-                    "#4=" << probe_depth << "			(probe depth)\n"
-                    "#5=400			(traverse speed)\n"
-                    "#6=60			(probe speed)\n"
+                    "#1=" << info.clear_height << "			(clearance height)\n"
+                    "#2=" << info.traverse_height << "       	(traverse height)\n"
+                    "#3=" << info.route_depth << "   		(route depth)\n"
+                    "#4=" << info.probe_depth << "			(probe depth)\n"
+                    "#5=" << info.traverse_speed << "    (traverse speed)\n"
+                    "#6=" << info.probe_speed << "      (probe speed)\n"
                     "\n"
                     "\n"
                     "M05			(stop motor)\n"
                     "(MSG,PROBE: Position to within 5mm of surface & resume)\n"
-                    << GCODE_PAUSE_COMMAND << " (position to within 5m of surface and resume)\n"
+                    << GCODE_PAUSE_COMMAND << " (position to within 5mm of surface and resume)\n"
                     "G49			(clear any tool offsets)\n"
                     "G92.1			(zero co-ordinate offsets)\n"
                     "G91			(use relative coordinates)\n"
-                    << GCODE_PROBE_COMMAND << " Z" << initial_probe << " F[#6]	(probe to find worksurface)\n"
+                    << GCODE_PROBE_COMMAND << " Z" << info.initial_probe << " F[#6]	(probe to find worksurface)\n"
                     "G90			(back to absolute)\n"
                     "G92 Z0			(zero Z)\n"
                     "G00 Z[#1]		(safe height)\n"
