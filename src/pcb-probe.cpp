@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <list>
+#include <stdlib.h>
 #include "pcb-probe.h"
 
 using namespace std;
@@ -44,6 +45,7 @@ using namespace std;
 
 #define PROFILE_COMMENT          "Current profile is"
 #define MACH3_PROFILE_NAME       "mach.pp"
+#define Z_SETTINGS_COMMENT       "  High     Up        Down     Drill"
 
 PCBProbeInfo info;
 
@@ -150,6 +152,7 @@ void LoadAndSplitSegments(const char *infile_path)
     bool definedMillMaxX = false;
     bool definedMillMinY = false;
     bool definedMillMaxY = false;
+    bool bNextLineZSettings = false ; // Guess that the next comment line has z settings
 
     info.ResetPos();
     info.GridSize = 5;
@@ -163,12 +166,59 @@ void LoadAndSplitSegments(const char *infile_path)
       
         // Scrape the comments for hints 
         if (cmd.name[0] == '(') {
-          // Look for the pcb-gcode profile string to guess mach3 or emc
-          if (cmd.name.find(PROFILE_COMMENT) &&
-              cmd.name.find(MACH3_PROFILE_NAME) &&
-              (false == info.GCode_Type_set)) {
-            SetGCodeVariant(mach3) ;
-          } /* if */
+          if (bNextLineZSettings) {
+
+            bNextLineZSettings = false ;
+
+            // Ingest the pcb-gcode z settings comment line
+            {
+              int    zParamIndex = 0 ;
+              double zParam[4] ;
+              int    pos = 0 ;
+
+
+              do {
+                string tmpStr = "" ;
+
+                // skip whitespace
+                while (pos < cmd.name.length() &&
+                       cmd.name[pos] == ' ' ||
+                       cmd.name[pos] == '(' ||
+                       cmd.name[pos] == ')')
+                  pos++ ;
+
+                // make a string out of the next word
+                while (pos < cmd.name.length() &&
+                       cmd.name[pos] != ' ')
+                  tmpStr += cmd.name[pos++] ;
+               
+                // convert it to a number 
+                zParam[zParamIndex++] = atof(tmpStr.c_str()) ;
+              } while (zParamIndex < 4 &&
+                  pos < cmd.name.length()) ;
+
+              if ((zParamIndex > 0) &&
+                  !info.clear_height_set)
+                SetClearHeight(zParam[0]) ;
+
+              if ((zParamIndex > 1) &&
+                  !info.traverse_height_set)
+                SetTraverseHeight(zParam[1]) ;
+
+              if ((zParamIndex > 2) &&
+                  !info.route_depth_set)
+                SetRouteDepth(zParam[2]) ;
+            }
+          } else {
+            // Look for the pcb-gcode profile string to guess mach3 or emc
+            if ((string::npos != cmd.name.find(PROFILE_COMMENT)) &&
+                (string::npos != cmd.name.find(MACH3_PROFILE_NAME)) &&
+                (false == info.GCode_Type_set)) {
+              SetGCodeVariant(mach3) ;
+            } else if (string::npos != cmd.name.find(Z_SETTINGS_COMMENT)) {
+              bNextLineZSettings = true ;
+            } /* if */
+          } 
         } else if (cmd.name == "G20") {
             //Units in inches
             info.GridSize = info.GridSize / 25.4;
