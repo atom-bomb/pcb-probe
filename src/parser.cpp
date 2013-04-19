@@ -37,11 +37,11 @@ string NextToken(string &line, int &pos)
         switch (line[pos]) {
             case '(': //Comment
                 while (pos < line.length() && line[pos] != ')')
-                    pos++;
+                    result += line[pos++];
 
-                pos++;
+                result += line[pos++];
 
-                continue;
+                return result ;
             case 'X': //pcb2gcode generate lines with no commands, we assume G01
                 pos = 0;
                 return "G01";

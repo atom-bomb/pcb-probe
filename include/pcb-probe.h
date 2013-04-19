@@ -45,6 +45,7 @@ struct PCBProbeInfo
     }
    
     GCode_Variant_Name GCode_Type ; 
+    bool GCode_Type_set ;
 
     Real clear_height ;
     bool clear_height_set ;

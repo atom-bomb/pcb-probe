@@ -1,6 +1,5 @@
 /*
  * XXX TODO: scrape GCode input for route_depth, clear_height, traverse_height and traverse_speed
- * XXX TODO: try to guess GCode variant by looking at GCode input
  * XXX TODO: handle any potential output stream errors and return them to the caller
  */
 #include <assert.h>
@@ -42,6 +41,9 @@ using namespace std;
 #define INITIAL_PROBE_MM         -5
 #define TRAVERSE_SPEED_MM        400
 #define PROBE_SPEED_MM           60
+
+#define PROFILE_COMMENT          "Current profile is"
+#define MACH3_PROFILE_NAME       "mach.pp"
 
 PCBProbeInfo info;
 
@@ -111,6 +113,7 @@ void SetGCodeVariant(GCode_Variant_Name theVariant)
 {
   theGCodeVariant = &GCode_Variants[theVariant] ;
   info.GCode_Type = theVariant ;
+  info.GCode_Type_set = true ;
   nextVariableNumber = FIRST_GCODE_VARIABLE ;
 }
 
@@ -157,8 +160,16 @@ void LoadAndSplitSegments(const char *infile_path)
         currentLine++;
         getline(in, line);
         ParseGCodeLine(line, cmd);
-        
-        if (cmd.name == "G20") {
+      
+        // Scrape the comments for hints 
+        if (cmd.name[0] == '(') {
+          // Look for the pcb-gcode profile string to guess mach3 or emc
+          if (cmd.name.find(PROFILE_COMMENT) &&
+              cmd.name.find(MACH3_PROFILE_NAME) &&
+              (false == info.GCode_Type_set)) {
+            SetGCodeVariant(mach3) ;
+          } /* if */
+        } else if (cmd.name == "G20") {
             //Units in inches
             info.GridSize = info.GridSize / 25.4;
             info.SplitOver = info.SplitOver / 25.4;
