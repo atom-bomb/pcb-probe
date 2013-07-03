@@ -36,9 +36,6 @@ struct PCBProbeInfo
     Real MillMaxX;
     Real MillMaxY;
 
-    //Route Depth
-    Real MillRouteDepth;
-
 	//Drill Spots Fields
 	bool HasDrillSpots;
 	Real DrillSpotDepth;

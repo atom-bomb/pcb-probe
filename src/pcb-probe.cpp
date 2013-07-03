@@ -164,7 +164,6 @@ void LoadAndSplitSegments(const char *infile_path)
     bool definedMillMinY = false;
     bool definedMillMaxY = false;
     bool bNextLineZSettings = false ; // Guess that the next comment line has z settings
-    bool definedMillRouteDepth = false;
     bool definedDrillSpotDepth = false;
 
     info.ResetPos();
@@ -299,8 +298,11 @@ void LoadAndSplitSegments(const char *infile_path)
             moveTo(cmd);
 
             if (info.Pos.z < 0) {
-                if (!definedMillRouteDepth || (info.Pos.z < info.MillRouteDepth))
-                    info.MillRouteDepth = info.Pos.z;
+               /* If we're still using the programmed defaults for route depth and this z position
+                * is lower than the default then set the route depth to this z position.
+                */
+                if (!info.route_depth_set && (info.Pos.z < info.route_depth))
+                    info.route_depth = info.Pos.z;
 
                 if (!definedMillMinX || (info.Pos.x < info.MillMinX)) {
                     definedMillMinX = true;
