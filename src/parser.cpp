@@ -1,11 +1,12 @@
 #include <stdlib.h>
 #include <iostream>
 #include <sstream>
+
 #include "parser.h"
 
 extern int currentLine;
 
-double ParseNumber(string &line, int &pos)
+double ParseNumber(string &line, unsigned int &pos)
 {
     double result = 0.0;
     string str = "";
@@ -18,13 +19,13 @@ double ParseNumber(string &line, int &pos)
     return result;
 }
 
-void SkipSpaces(string &line, int &pos)
+void SkipSpaces(string &line, unsigned int &pos)
 {
     while (pos < line.length() && isspace(line[pos]))
         pos++;
 }
 
-string NextToken(string &line, int &pos)
+string NextToken(string &line, unsigned int &pos)
 {
     string result = "";
 
@@ -63,7 +64,7 @@ string NextToken(string &line, int &pos)
 
 void ParseGCodeLine(string& line, GCodeCommand& command)
 {
-    int i = 0;
+    unsigned int i = 0;
 
     //Get command name
     string cmd_name = NextToken(line, i);
@@ -112,7 +113,7 @@ string GCodeCommand::ToString()
 
     ss << name;
 
-    for (int i = 0; i < argNameList.length(); i++) {
+    for (unsigned int i = 0; i < argNameList.length(); i++) {
         char argName = argNameList[i];
         Real value = arguments[argName];
 

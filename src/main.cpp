@@ -50,6 +50,9 @@ int main(int argc, char** argv) {
         case 'r': // route depth
           SetRouteDepth(atof(optarg)) ;
           break ;
+        case 'g': // grid size
+          SetGridSize(atof(optarg)) ;
+          break ;
         case '?':
           bShowHelp = 1 ;
           break ;
@@ -64,6 +67,7 @@ int main(int argc, char** argv) {
         cerr << "  -c (height)  force clear height" << endl ;
         cerr << "  -t (height)  force traverse height" << endl ;
         cerr << "  -r (height)  force route depth" << endl ;
+        cerr << "  -g (grid size)  set probing grid size" << endl ;
         cerr << "  -v  display program version number" << endl ;
         cerr << "  -h  show this help message" << endl ;
         exit(1);
@@ -80,6 +84,7 @@ int main(int argc, char** argv) {
     
     cerr << "Generating " << GCode_Variants[info.GCode_Type].name << " GCode output in " << outfile_path << endl ;
     DoInterpolation();
+    cerr << " ." << endl;
     GenerateGCodeWithProbing(outfile_path);
     cerr << "Done." << endl;
     

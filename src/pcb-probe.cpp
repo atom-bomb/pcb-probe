@@ -32,8 +32,9 @@ using namespace std;
 #define ROUTE_DEPTH_INCHES      -0.001969
 #define PROBE_DEPTH_INCHES      -0.03937
 #define INITIAL_PROBE_INCHES    -0.1969
-#define TRAVERSE_SPEED_INCHES    400
-#define PROBE_SPEED_INCHES       60
+#define TRAVERSE_SPEED_INCHES    (400 / 25.4)
+#define PROBE_SPEED_INCHES       (60 / 25.4)
+#define GRID_SIZE_INCHES         (5 / 25.4)
 
 #define CLEAR_HEIGHT_MM          12.0
 #define TRAVERSE_HEIGHT_MM       0.5
@@ -42,6 +43,8 @@ using namespace std;
 #define INITIAL_PROBE_MM         -5
 #define TRAVERSE_SPEED_MM        400
 #define PROBE_SPEED_MM           60
+#define GRID_SIZE_MM             5
+
 
 #define PROFILE_COMMENT          "Current profile is"
 #define MACH3_PROFILE_NAME       "mach.pp"
@@ -99,7 +102,7 @@ static void split_if_needed(GCodeCommand &command)
     }
 }
 
-void moveTo(GCodeCommand &command)
+static inline void moveTo(GCodeCommand &command)
 {
     if (command.hasXCoord())
         info.Pos.x = command.getXCoord();
@@ -137,6 +140,14 @@ void SetRouteDepth(Real theDepth)
   info.route_depth_set = true ;
 }
 
+void SetGridSize(Real theGridSize)
+{
+  if (theGridSize) {
+    info.GridSize = theGridSize ;
+    info.grid_size_set = true ;
+  }
+}
+
 void LoadAndSplitSegments(const char *infile_path)
 {
     string line;
@@ -153,10 +164,11 @@ void LoadAndSplitSegments(const char *infile_path)
     bool definedMillMinY = false;
     bool definedMillMaxY = false;
     bool bNextLineZSettings = false ; // Guess that the next comment line has z settings
+    bool definedMillRouteDepth = false;
+    bool definedDrillSpotDepth = false;
 
     info.ResetPos();
-    info.GridSize = 5;
-    info.SplitOver = 5;
+    info.HasDrillSpots = false;
 
     while (in.good()) {
 
@@ -221,9 +233,12 @@ void LoadAndSplitSegments(const char *infile_path)
           } 
         } else if (cmd.name == "G20") {
             //Units in inches
-            info.GridSize = info.GridSize / 25.4;
-            info.SplitOver = info.SplitOver / 25.4;
             info.UnitType = UNIT_INCHES;
+
+            if (!info.grid_size_set)
+              info.GridSize = GRID_SIZE_INCHES ;
+
+            info.SplitOver = info.GridSize;
 
             if (!info.clear_height_set)
               info.clear_height = CLEAR_HEIGHT_INCHES ;
@@ -247,6 +262,11 @@ void LoadAndSplitSegments(const char *infile_path)
               info.probe_speed = PROBE_SPEED_INCHES ;
         } else if (cmd.name == "G21") {
             info.UnitType = UNIT_MM;
+
+            if (!info.grid_size_set)
+              info.GridSize = GRID_SIZE_MM ;
+
+            info.SplitOver = info.GridSize;
 
             if (!info.clear_height_set)
               info.clear_height = CLEAR_HEIGHT_MM ;
@@ -279,6 +299,9 @@ void LoadAndSplitSegments(const char *infile_path)
             moveTo(cmd);
 
             if (info.Pos.z < 0) {
+                if (!definedMillRouteDepth || (info.Pos.z < info.MillRouteDepth))
+                    info.MillRouteDepth = info.Pos.z;
+
                 if (!definedMillMinX || (info.Pos.x < info.MillMinX)) {
                     definedMillMinX = true;
                     info.MillMinX = info.Pos.x;
@@ -297,14 +320,29 @@ void LoadAndSplitSegments(const char *infile_path)
                 }
             }
 
-        } else if (!cmd.name.empty()) {
+		} else if (cmd.name == "G82") {
+			moveTo(cmd);
+
+			info.HasDrillSpots = true;
+			if (!definedDrillSpotDepth && cmd.hasZCoord())
+				info.DrillSpotDepth = cmd.getZCoord();
+
+			cmdList.push_back(cmd);
+
+		} else if (!cmd.name.empty()) {
             cmdList.push_back(cmd);
         }
     }
     in.close();
 
-    info.GridMaxX = floor((info.MillMaxX - info.MillMinX) / info.GridSize);
-    info.GridMaxY = floor((info.MillMaxY - info.MillMinY) / info.GridSize);
+	info.GridMaxX = (unsigned int)ceil((info.MillMaxX - info.MillMinX) / info.GridSize);
+    info.GridMaxY = (unsigned int)ceil((info.MillMaxY - info.MillMinY) / info.GridSize);
+
+	info.MillMinX -= info.GridSize / 2.0;
+	info.MillMinY -= info.GridSize / 2.0 ;
+
+	info.Gx = (info.MillMaxX - info.MillMinX)/(info.GridMaxX + 0.5);
+	info.Gy = (info.MillMaxY - info.MillMinY)/(info.GridMaxY + 0.5);
 }
 
 //Second Pass
@@ -351,31 +389,31 @@ int cell_variable(int gx, int gy)
  * so we can lookup stuff 
  */
 
-void grid_ref(Real x, Real y, int &ref_x, int &ref_y)
+void grid_ref(Real x, Real y, unsigned int &ref_x, unsigned int &ref_y)
 {
 
     Real zero_x = x - info.MillMinX;
     Real zero_y = y - info.MillMinY;
 
-    ref_x = floor(zero_x / info.GridSize);
-    ref_y = floor(zero_y / info.GridSize);
+    ref_x = (unsigned int)floor(zero_x / info.Gx);
+    ref_y = (unsigned int)floor(zero_y / info.Gy);
 }
 
 /*
  * Given a co-ordinate we need to interpolate the values from
  * the surrounding cells
  */
-string interpolate(Real x, Real y)
+string interpolate(Real x, Real y, bool isLinearMotionCommand)
 {
 
-    int cellx, celly;
+    unsigned int cellx, celly;
     grid_ref(x, y, cellx, celly);
 
-    Real os_x = ((x - info.MillMinX) - ((Real) cellx * info.GridSize)) / info.GridSize;
-    Real os_y = ((y - info.MillMinY) - ((Real) celly * info.GridSize)) / info.GridSize;
+    Real os_x = ((x - info.MillMinX) - ((Real) cellx * info.Gx)) / info.Gx;
+    Real os_y = ((y - info.MillMinY) - ((Real) celly * info.Gy)) / info.Gy;
 
-    int px_cell = cellx + (os_x > 0.5 ? 1 : -1);
-    int py_cell = celly + (os_y > 0.5 ? 1 : -1);
+    unsigned int px_cell = cellx + (os_x > 0.5 ? 1 : -1);
+    unsigned int py_cell = celly + (os_y > 0.5 ? 1 : -1);
 
     if (px_cell < 0 || px_cell > info.GridMaxX) {
         px_cell = cellx;
@@ -398,14 +436,15 @@ string interpolate(Real x, Real y)
     /*
      * Now we can work out the interpolation...
      */
-    stringstream ss;
+	stringstream ss;
+	string depthParameter = isLinearMotionCommand? "#3" : "#7";
 
     ss.precision(3);
     ss << fixed << (x_pc * y_pc) << "*#" << cell_variable(cellx, celly) << " + " <<
             ((1 - x_pc) * y_pc) << "*#" << cell_variable(px_cell, celly) << " + " <<
             (x_pc * (1 - y_pc)) << "*#" << cell_variable(cellx, py_cell) << " + " <<
             ((1 - x_pc) * (1 - y_pc)) << "*#" << cell_variable(px_cell, py_cell) << " + " <<
-            "#3";
+            depthParameter;
 
     return ss.str();
 }
@@ -433,11 +472,16 @@ void DoInterpolation()
                  * First thing we do is allocate a variable number to the grid
                  * square (if it hasn't already got one)
                  */
-                string zformula = interpolate(info.Pos.x, info.Pos.y);
+                string zformula = interpolate(info.Pos.x, info.Pos.y, true);
                 it->setZFormula(zformula);
             }
 
-        }
+		} else if (cmd.name == "G82") {
+			moveTo(cmd);
+
+			string zformula = interpolate(info.Pos.x, info.Pos.y, false);
+			it->setZFormula(zformula);
+		}
 
         it++;
     }
@@ -466,7 +510,7 @@ void GenerateGCodeWithProbing(const char *outfile_path)
             out << cmd.ToString() << endl;
             out << "\n"
                     "(Processed with pcb-probe version " << VERSION << 
-                    " by Lee Essen, 2011, Ivan de Jesus Deras 2013)"
+                    " by Ivan de Jesus Deras 2013 [Lee Essen, 2011] )"
                     "\n"
                     "(this GCode is intended for " << theGCodeVariant->name << ")\n"
                     "\n"
@@ -475,11 +519,15 @@ void GenerateGCodeWithProbing(const char *outfile_path)
                     "#3=" << info.route_depth << "   		(route depth)\n"
                     "#4=" << info.probe_depth << "			(probe depth)\n"
                     "#5=" << info.traverse_speed << "    (traverse speed)\n"
-                    "#6=" << info.probe_speed << "      (probe speed)\n"
-                    "\n"
-                    "\n"
-                    "M05			(stop motor)\n"
-                    "(MSG,PROBE: Position to within 5mm of surface & resume)\n"
+                    "#6=" << info.probe_speed << "      (probe speed)\n" ;
+
+	            if (info.HasDrillSpots)
+                        out << "#7=" << info.DrillSpotDepth << "		(drill spot depth)\n";
+
+                    out << endl << endl ;
+
+                    out << "M05			(stop motor)\n"
+                    "(MSG,PROBE: Position to within 5mm [~0.2 inches] of surface & resume)\n"
                     << GCODE_PAUSE_COMMAND << " (position to within 5mm of surface and resume)\n"
                     "G49			(clear any tool offsets)\n"
                     "G92.1			(zero co-ordinate offsets)\n"
@@ -496,7 +544,7 @@ void GenerateGCodeWithProbing(const char *outfile_path)
              * we should do it in a fairly optimal way
              */
 
-            int gx, gy, rgx;
+            unsigned int gx, gy, rgx;
 
             for (gy = 0; gy <= info.GridMaxY; gy++) {
                 for (rgx = 0; rgx <= info.GridMaxX; rgx++) {
@@ -507,8 +555,8 @@ void GenerateGCodeWithProbing(const char *outfile_path)
                     }
 
                     // Find the point in the centre of the grid square...
-                    Real px = info.MillMinX + ((Real) gx * info.GridSize) + (info.GridSize / 2);
-                    Real py = info.MillMinY + ((Real) gy * info.GridSize) + (info.GridSize / 2);
+                    Real px = info.MillMinX + ((Real) gx * info.Gx) + (info.Gx / 2);
+                    Real py = info.MillMinY + ((Real) gy * info.Gy) + (info.Gy / 2);
 
                     if (!cellHasVariable(gx, gy))
                         continue;

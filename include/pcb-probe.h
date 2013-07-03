@@ -25,6 +25,9 @@ struct PCBProbeInfo
     int UnitType; //MM by default
     Position Pos;
     double GridSize;
+    bool   grid_size_set ;
+
+    double Gx, Gy; //Adjusted GridSize on X and Y axes
     double SplitOver;
     
     //Board boundaries
@@ -32,10 +35,17 @@ struct PCBProbeInfo
     Real MillMinY;
     Real MillMaxX;
     Real MillMaxY;
+
+    //Route Depth
+    Real MillRouteDepth;
+
+	//Drill Spots Fields
+	bool HasDrillSpots;
+	Real DrillSpotDepth;
     
     //Number of cells in Grid
-    int GridMaxX;
-    int GridMaxY;
+    unsigned int GridMaxX;
+    unsigned int GridMaxY;
     
     void ResetPos()
     {
@@ -76,6 +86,7 @@ void SetGCodeVariant(GCode_Variant_Name theVariant);
 void SetClearHeight(Real theHeight) ;
 void SetTraverseHeight(Real theHeight) ;
 void SetRouteDepth(Real theDepth) ;
+void SetGridSize(Real theGridSize) ;
 
 void LoadAndSplitSegments(const char *infile_path);
 void DoInterpolation();

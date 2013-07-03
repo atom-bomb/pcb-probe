@@ -108,7 +108,7 @@ struct GCodeCommand {
         argNameList = cmd.argNameList;
         zformula = cmd.zformula;
         
-        for (int i = 0; i < argNameList.length(); i++ ) {
+        for (unsigned int i = 0; i < argNameList.length(); i++ ) {
                 char argName = argNameList[i];
                 Real value = arguments[argName];
         
