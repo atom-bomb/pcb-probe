@@ -8,7 +8,7 @@ INCLUDES=-I$(shell pwd)/include
 CPPFLAGS=$(INCLUDES) -DVERSION="\"$(VERSION)\"" -DDEFAULT_GCODE_TYPE=emc
 
 LD=gcc
-LIBS=-lstdc++
+LIBS=-lstdc++ -lm
 LDFLAGS=$(LIBS)
 
 SRCDIR=src
