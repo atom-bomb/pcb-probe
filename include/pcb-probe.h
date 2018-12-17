@@ -83,6 +83,7 @@ void SetGCodeVariant(GCode_Variant_Name theVariant);
 void SetClearHeight(Real theHeight) ;
 void SetTraverseHeight(Real theHeight) ;
 void SetRouteDepth(Real theDepth) ;
+void SetProbeDepth(Real theDepth) ;
 void SetGridSize(Real theGridSize) ;
 
 void LoadAndSplitSegments(const char *infile_path);

@@ -3,12 +3,12 @@ MKDIR=mkdir -p
 
 VERSION?=$(shell git describe --always --dirty)
 
-CC=gcc
+CC=g++
 INCLUDES=-I$(shell pwd)/include
 CPPFLAGS=$(INCLUDES) -DVERSION="\"$(VERSION)\"" -DDEFAULT_GCODE_TYPE=emc
 
-LD=gcc
-LIBS=-lstdc++
+LD=g++
+LIBS=-lstdc++ -lm
 LDFLAGS=$(LIBS)
 
 SRCDIR=src

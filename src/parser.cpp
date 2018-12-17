@@ -11,7 +11,7 @@ double ParseNumber(string &line, unsigned int &pos)
     double result = 0.0;
     string str = "";
 
-    while (pos < line.length() && line[pos] != ' ')
+    while (pos < line.length() && !isspace(line[pos]))
         str += line[pos++];
 
     result = atof(str.c_str());
@@ -27,6 +27,7 @@ void SkipSpaces(string &line, unsigned int &pos)
 
 string NextToken(string &line, unsigned int &pos)
 {
+    static string last_result = "";
     string result = "";
 
     while (1) {
@@ -43,15 +44,19 @@ string NextToken(string &line, unsigned int &pos)
                 result += line[pos++];
 
                 return result ;
-            case 'X': //pcb2gcode generate lines with no commands, we assume G01
+            case ';': // Comment
+                return result;
+            case 'X': //generate lines with no commands, we assume last move command
+            case 'Y': 
                 pos = 0;
-                return "G01";
+                return last_result;
             case 'S':
             case 'M':
             case 'G':
+            case 'F':
                 while (pos < line.length() && !isspace(line[pos]))
                     result += line[pos++];
-
+                last_result = result;
                 return result;
             default:
                 cerr << currentLine << ": Unknown symbol '" << line[pos] << "'" << endl;
@@ -96,6 +101,8 @@ void ParseGCodeLine(string& line, GCodeCommand& command)
                     i++;
 
                 i++;
+            } else if (line[i] == ';') { //Is another kind of comment
+               break;
             } else {
                 cerr << currentLine << ": Unknown argument '" << line[i] << "'" << endl;
                 exit(3);

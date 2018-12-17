@@ -148,6 +148,12 @@ void SetGridSize(Real theGridSize)
   }
 }
 
+void SetProbeDepth(Real theDepth)
+{
+  info.probe_depth = theDepth ;
+  info.probe_depth_set = true ;
+}
+
 void LoadAndSplitSegments(const char *infile_path)
 {
     string line;
@@ -289,7 +295,7 @@ void LoadAndSplitSegments(const char *infile_path)
               info.probe_speed = PROBE_SPEED_MM ;
         }
 
-        if (cmd.name == "G00" || cmd.name == "G01") {
+        if (cmd.name == "G00" || cmd.name == "G01" || cmd.name == "G0" || cmd.name == "G1") {
             /*
              * We have a move command, if our z is below zero then this will
              * count towards our area
@@ -462,7 +468,7 @@ void DoInterpolation()
     while (it != cmdList.end()) {
         GCodeCommand cmd = *it;
 
-        if (cmd.name == "G00" || cmd.name == "G01") {
+        if (cmd.name == "G00" || cmd.name == "G01" || cmd.name == "G0" || cmd.name == "G1") {
             /*
              * We have a move command, if our z is below zero then this will
              * count towards our area
@@ -580,6 +586,7 @@ void GenerateGCodeWithProbing(const char *outfile_path)
             out << "\n"
                     "\n"
                     "G00 Z[#1]		(safe height)\n"
+                    "G00 X0 Y0		(go to origin)\n"
                     "(MSG,PROBE: Probe complete, remove connections & resume)\n"
                     << GCODE_PAUSE_COMMAND << " (Probe complete, remove connections and resume)\n"
                     "(MSG,PROBE: Beginning etch)\n"

@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
     extern char *optarg ;
     extern int optind, optopt, opterr ;
 
-    while ((opt = getopt(argc, argv, "emhvc:t:r:")) != -1) {
+    while ((opt = getopt(argc, argv, "emhvc:t:r:g:p:")) != -1) {
       switch (opt) {
         case 'e':
           SetGCodeVariant(emc) ;
@@ -53,6 +53,9 @@ int main(int argc, char** argv) {
         case 'g': // grid size
           SetGridSize(atof(optarg)) ;
           break ;
+        case 'p': // probe depth
+          SetProbeDepth(atof(optarg)) ;
+          break ;
         case '?':
           bShowHelp = 1 ;
           break ;
@@ -67,6 +70,7 @@ int main(int argc, char** argv) {
         cerr << "  -c (height)  force clear height" << endl ;
         cerr << "  -t (height)  force traverse height" << endl ;
         cerr << "  -r (height)  force route depth" << endl ;
+        cerr << "  -p (height)  force probe depth" << endl ;
         cerr << "  -g (grid size)  set probing grid size" << endl ;
         cerr << "  -v  display program version number" << endl ;
         cerr << "  -h  show this help message" << endl ;
@@ -80,7 +84,7 @@ int main(int argc, char** argv) {
     LoadAndSplitSegments(infile_path);
     
     string unit = (info.UnitType == UNIT_INCHES)? "Inches" : "mm";
-    cerr << "Board Size (" << unit << "): " << fabs(info.MillMaxX - info.MillMinX) << "x" << fabs(info.MillMinY - info.MillMaxY) << endl << endl;
+    cerr << "Board Size (" << unit << "): " << fabs(info.MillMaxX - info.MillMinX) << "x" << fabs(info.MillMaxY - info.MillMinY) << endl << endl;
     
     cerr << "Generating " << GCode_Variants[info.GCode_Type].name << " GCode output in " << outfile_path << endl ;
     DoInterpolation();
