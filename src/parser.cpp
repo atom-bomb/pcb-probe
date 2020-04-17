@@ -11,7 +11,7 @@ double ParseNumber(string &line, unsigned int &pos)
     double result = 0.0;
     string str = "";
 
-    while (pos < line.length() && !isspace(line[pos]))
+    while (pos < line.length() && !isalpha(line[pos]) && !isspace(line[pos]))
         str += line[pos++];
 
     result = atof(str.c_str());
@@ -47,7 +47,7 @@ string NextToken(string &line, unsigned int &pos)
             case ';': // Comment
                 return result;
             case 'X': //generate lines with no commands, we assume last move command
-            case 'Y': 
+            case 'Y':
                 pos = 0;
                 return last_result;
             case 'S':
